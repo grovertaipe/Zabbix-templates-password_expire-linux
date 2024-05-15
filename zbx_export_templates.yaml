@@ -1,0 +1,128 @@
+zabbix_export:
+  version: '6.4'
+  template_groups:
+    -
+      uuid: 8a0a5ddc149a4ac5a63b1c736f5d35ee
+      name: Monitoreo
+  templates:
+    -
+      uuid: d428466edbbb438b85b1d91ab51b1bc5
+      template: 'Linux User Password Expiration Monitoring'
+      name: 'Linux User Password Expiration Monitoring'
+      description: 'Esta plantilla monitorea la expiración de contraseñas de usuarios en sistemas Linux. Utiliza un conjunto de ítems y triggers para alertar cuando la fecha de expiración de una contraseña se acerca, permitiendo una gestión proactiva de la seguridad de las contraseñas en el entorno Linux. Los ítems recopilan la fecha de expiración de las contraseñas de los usuarios. Para contraseñas que necesitan ser cambiadas, se establece la fecha actual. Para contraseñas que nunca expiran, se utiliza un valor especial. Los triggers generan alertas basadas en umbrales definidos por el usuario. Esta plantilla es esencial para mantener la seguridad de las cuentas de usuario y prevenir el acceso no autorizado debido a contraseñas caducadas en sistemas Linux.'
+      groups:
+        -
+          name: Monitoreo
+      items:
+        -
+          uuid: 06bb424ab80343859fe7afaea612a963
+          name: 'pwd expire get'
+          key: expiration.pwd
+          delay: 5m
+          history: '0'
+          trends: '0'
+          value_type: TEXT
+      discovery_rules:
+        -
+          uuid: b038ecb0a75e4b0b8ffd280d8fee309d
+          name: 'Password expire discovery'
+          type: DEPENDENT
+          key: pwd.dependent.discovery
+          delay: '0'
+          filter:
+            conditions:
+              -
+                macro: '{#USERNAME}'
+                value: '{$PWD.USR.MATCHES}'
+                formulaid: A
+              -
+                macro: '{#USERNAME}'
+                value: '{$PWD.USR.NOT.MATCHES}'
+                operator: NOT_MATCHES_REGEX
+                formulaid: B
+          item_prototypes:
+            -
+              uuid: 08f0dedb0e2e469ebe6de069a1fde166
+              name: '{#USERNAME}: Get user data'
+              type: DEPENDENT
+              key: 'pwd.dependent[{#USERNAME},data]'
+              delay: '0'
+              history: '0'
+              trends: '0'
+              value_type: TEXT
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - '$.[?(@.username==''{#USERNAME}'')].first()'
+              master_item:
+                key: expiration.pwd
+              tags:
+                -
+                  tag: system
+                  value: raw
+            -
+              uuid: 3de57cd96c514b85b29ee052c6f89549
+              name: 'Password Expiration Date for {#USERNAME}'
+              type: DEPENDENT
+              key: 'pwd.expire[{#USERNAME}]'
+              delay: '0'
+              history: 30d
+              units: unixtime
+              preprocessing:
+                -
+                  type: JSONPATH
+                  parameters:
+                    - $.expiration_date
+              master_item:
+                key: 'pwd.dependent[{#USERNAME},data]'
+              tags:
+                -
+                  tag: expiration
+                  value: password
+              trigger_prototypes:
+                -
+                  uuid: f943dfce747e46038f334f8af19a4235
+                  expression: '(last(/Linux User Password Expiration Monitoring/pwd.expire[{#USERNAME}]) - now()) / 86400 < {$PWD.EXPIRY.CRIT}'
+                  name: 'Password Expiry Alert for Users'
+                  event_name: 'Password Expiry Alert for {#USERNAME} soon (less than {$PWD.EXPIRY.CRIT} days)'
+                  opdata: '{ITEM.LASTVALUE1}'
+                  priority: HIGH
+                  description: 'La contraseña del usuario vencerá en menos de {$PWD.EXPIRY.CRIT} días. Se requiere una acción inmediata para cambiar la contraseña y garantizar la seguridad de la cuenta.'
+                  manual_close: 'YES'
+                -
+                  uuid: bf877884185f4f9ca759bcd2884f0e94
+                  expression: '(last(/Linux User Password Expiration Monitoring/pwd.expire[{#USERNAME}]) - now()) / 86400 < {$PWD.EXPIRY.WARN}'
+                  name: 'Password Expiry Alert for Users'
+                  event_name: 'Password Expiry Alert for {#USERNAME} soon (less than {$PWD.EXPIRY.WARN} days)'
+                  opdata: '{ITEM.LASTVALUE1}'
+                  priority: WARNING
+                  description: 'La contraseña del usuario vencerá en menos de {$PWD.EXPIRY.WARN} días. Se requiere una acción inmediata para cambiar la contraseña y garantizar la seguridad de la cuenta.'
+                  manual_close: 'YES'
+                  dependencies:
+                    -
+                      name: 'Password Expiry Alert for Users'
+                      expression: '(last(/Linux User Password Expiration Monitoring/pwd.expire[{#USERNAME}]) - now()) / 86400 < {$PWD.EXPIRY.CRIT}'
+          master_item:
+            key: expiration.pwd
+          lld_macro_paths:
+            -
+              lld_macro: '{#USERNAME}'
+              path: $.username
+      tags:
+        -
+          tag: user
+          value: '{#USERNAME}'
+      macros:
+        -
+          macro: '{$PWD.EXPIRY.CRIT}'
+          value: '2'
+        -
+          macro: '{$PWD.EXPIRY.WARN}'
+          value: '10'
+        -
+          macro: '{$PWD.USR.MATCHES}'
+          value: .+
+        -
+          macro: '{$PWD.USR.NOT.MATCHES}'
+          value: ^(zabbix)$
