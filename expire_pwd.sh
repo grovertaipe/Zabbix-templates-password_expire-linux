@@ -14,10 +14,10 @@ for user in $users; do
 
   if [[ "$exp_date" == "never" || -z "$exp_date" ]]; then
     # Si la contraseña no expira, establecer un valor especial (máxima fecha Unix Time)
-    exp_date="253402300799"  # 9999-12-31 23:59:59 UTC en Unix Time
+    exp_date="253382413588"  # 9999-12-31 23:59:59 UTC en Unix Time
   elif [[ "$exp_date" == "password must be changed" ]]; then
-    # Si la contraseña debe ser cambiada, establecer un valor especial (máxima fecha Unix Time)
-    exp_date="253402300799"  # 9999-12-31 23:59:59 UTC en Unix Time
+    # Si la contraseña debe ser cambiada, establecer la fecha actual en Unix Time
+    exp_date=$(date +%s)
   else
     # Convertir la fecha a formato Unix Time (epoch time)
     exp_date=$(date -d "$exp_date" +%s 2>/dev/null)
