@@ -21,7 +21,6 @@ Abre el archivo /etc/sudoers en tu servidor utilizando el comando visudo:
 sudo visudo
 Agrega la siguiente línea al final del archivo para permitir que el usuario Zabbix ejecute el comando chage sin contraseña:
 
-Copiar código en visudo
 zabbix ALL=(ALL) NOPASSWD: /usr/bin/chage
 Guarda los cambios y cierra el archivo.
 
